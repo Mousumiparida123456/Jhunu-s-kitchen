@@ -1,0 +1,121 @@
+.page-menu {
+  background-color: var(--background);
+}
+
+.menu-header {
+  height: 40vh;
+  min-height: 350px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('https://images.unsplash.com/photo-1589302168068-964664d93cb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  padding-top: 80px; /* offset navbar */
+}
+
+.header-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(61, 49, 42, 0.65);
+}
+
+.header-content {
+  position: relative;
+  z-index: 2;
+}
+
+.header-content h1 {
+  font-size: 3.5rem;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.header-content p {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.menu-section {
+  padding: var(--spacing-xl) var(--spacing-md);
+  max-width: 900px;
+}
+
+.menu-category {
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.category-title {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.menu-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  text-align: left;
+  margin-top: 2rem;
+}
+
+.menu-item {
+  padding: 1.5rem 2rem;
+  border-radius: var(--radius-md);
+  transition: transform 0.3s ease;
+}
+
+.menu-item:hover {
+  transform: translateY(-4px);
+  background-color: #fff;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px dashed rgba(61, 49, 42, 0.2);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.item-header h3 {
+  font-size: 1.4rem;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.item-price {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.2rem;
+  padding-left: 1rem;
+}
+
+.item-desc {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.dietary-section {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(61, 49, 42, 0.1);
+}
+
+.dietary-note {
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.8;
+}
+
+@media (max-width: 768px) {
+  .menu-item {
+    padding: 1rem 1.5rem;
+  }
+}
