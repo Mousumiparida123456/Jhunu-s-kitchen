@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
 
 const deliveryItems = [
-  { id: 'i1', name: 'Chicken Biryani', price: 250 },
-  { id: 'i2', name: 'Pani Puri', price: 50 },
-  { id: 'i3', name: 'Mix Chaat', price: 70 },
-  { id: 'i4', name: 'Momos', price: 120 },
-  { id: 'i5', name: 'Gourmet Burger', price: 180 },
-  { id: 'i6', name: 'Margherita Pizza', price: 220 },
-  { id: 'i7', name: 'Sweet Lassi', price: 90 },
-  { id: 'i8', name: 'Masala Cola', price: 60 },
-  { id: 'i9', name: 'Masala Dosa', price: 150 }
+  { id: 'i1', name: 'Chicken Biryani', price: 120 },
+  { id: 'i2', name: 'Pani Puri', price: 30 },
+  { id: 'i3', name: 'Mix Chaat', price: 30 },
+  { id: 'i4', name: 'Veg Momos', price: 50 },
+  { id: 'i4b', name: 'Chicken Momos', price: 60 },
+  { id: 'i5', name: 'Gourmet Burger', price: 90 },
+  { id: 'i6', name: 'Margherita Pizza', price: 120 },
+  { id: 'i7', name: 'Sweet Lassi', price: 60 },
+  { id: 'i8', name: 'Masala Cola', price: 50 },
+  { id: 'i9', name: 'Masala Dosa', price: 60 },
+  { id: 'i10', name: 'Veg Biryani', price: 100 },
+  { id: 'i11', name: 'French Fries', price: 70 },
+  { id: 'i12', name: 'Nimbu Pani', price: 30 },
+  { id: 'i13', name: 'Cold Drink', price: 30 },
+  { id: 'i14', name: 'Rose Falooda', price: 100 },
+  { id: 'i15', name: 'Ice Cream', price: 50 }
 ];
 
 export default function Delivery() {
@@ -18,9 +25,13 @@ export default function Delivery() {
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [orderId, setOrderId] = useState('');
 
-  const total = deliveryItems.reduce((acc, item) => {
+  const subtotal = deliveryItems.reduce((acc, item) => {
     return acc + (item.price * (quantities[item.id] || 0));
   }, 0);
+
+  const discount = subtotal >= 500 ? (subtotal * 0.05) : 0;
+  const deliveryCharge = (subtotal > 0 && subtotal < 500) ? 40 : 0;
+  const total = Math.round(subtotal - discount + deliveryCharge);
 
   const handleQuantityChange = (id, val) => {
     setQuantities(prev => ({
@@ -123,9 +134,29 @@ export default function Delivery() {
               </div>
 
               {/* Total Bill Section */}
-              <div style={{ marginTop: '0.5rem', padding: '1.2rem', background: 'rgba(211, 47, 47, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(211, 47, 47, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '1.2rem', fontWeight: '600', color: 'var(--text-main)', fontFamily: 'var(--font-heading)' }}>Total Bill Amount:</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)' }}>₹ {total}</span>
+              <div style={{ marginTop: '0.5rem', padding: '1.2rem', background: 'rgba(211, 47, 47, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(211, 47, 47, 0.2)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {(discount > 0 || deliveryCharge > 0) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-main)' }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: '500' }}>Subtotal:</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>₹ {subtotal}</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#2e7d32' }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: '500' }}>Discount 5% (Orders &gt;= ₹500):</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>- ₹ {Math.round(discount)}</span>
+                  </div>
+                )}
+                {deliveryCharge > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#d32f2f' }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: '500' }}>Delivery Charge (Orders &lt; ₹500):</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>+ ₹ {deliveryCharge}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: (discount > 0 || deliveryCharge > 0) ? '0.5rem' : '0', paddingTop: (discount > 0 || deliveryCharge > 0) ? '0.5rem' : '0', borderTop: (discount > 0 || deliveryCharge > 0) ? '1px solid rgba(211, 47, 47, 0.2)' : 'none', width: '100%' }}>
+                  <span style={{ fontSize: '1.2rem', fontWeight: '600', color: 'var(--text-main)', fontFamily: 'var(--font-heading)' }}>Total Bill Amount:</span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)' }}>₹ {total}</span>
+                </div>
               </div>
 
               <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '1.2rem', width: '100%', fontSize: '1.15rem' }}>
