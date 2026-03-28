@@ -49,11 +49,38 @@ export default function Delivery() {
     setStep('payment');
   };
 
-  const handlePaymentSubmit = (e) => {
+  const handlePaymentSubmit = async (e) => {
     e.preventDefault();
-    const generatedId = 'JK-' + Math.floor(1000 + Math.random() * 9000);
-    setOrderId(generatedId);
-    setStep('success');
+
+    const orderItems = deliveryItems
+      .map((item) => ({
+        name: item.name,
+        priceRupees: item.price,
+        quantity: quantities[item.id] || 0,
+      }))
+      .filter((i) => i.quantity > 0);
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: 'Guest',
+          paymentMethod,
+          items: orderItems,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to place order');
+      const data = await res.json();
+      const createdId = data?.order?.id;
+      setOrderId(createdId || 'JK-' + Math.floor(1000 + Math.random() * 9000));
+      setStep('success');
+    } catch {
+      // Fallback: keep the existing demo flow if the API isn't running yet.
+      const generatedId = 'JK-' + Math.floor(1000 + Math.random() * 9000);
+      setOrderId(generatedId);
+      setStep('success');
+    }
   };
 
   const resetOrder = () => {

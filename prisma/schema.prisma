@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrderStatus {
+  Pending
+  Preparing
+  OutForDelivery
+  Delivered
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  category    String
+  name        String
+  description String
+  priceRupees Int
+  imagePath   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orderItems  OrderItem[]
+
+  @@index([category])
+  @@unique([category, name])
+}
+
+model Order {
+  id            String      @id
+  customerName  String?
+  paymentMethod String?
+  status        OrderStatus @default(Pending)
+  subtotalRupees Int
+  discountRupees Int
+  deliveryChargeRupees Int
+  totalRupees   Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items         OrderItem[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  menuItemId  String?
+  name        String
+  priceRupees Int
+  quantity    Int
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
