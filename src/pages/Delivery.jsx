@@ -83,14 +83,15 @@ export default function Delivery() {
       setOrderId(finalOrderId);
 
       if (paymentMethod === 'upi') {
-        const payRes = await fetch('/api/payments/create', {
+        const payRes = await fetch('/api/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: finalOrderId, phone: customerPhone }),
+          body: JSON.stringify({ amount: total, phone: customerPhone }),
         });
         const payData = await payRes.json().catch(() => ({}));
-        if (payRes.ok && payData?.paymentLink?.url) {
-          setPaymentLinkUrl(payData.paymentLink.url);
+        if (payRes.ok && payData?.link) {
+          window.location.href = payData.link;
+          return;
         } else {
           setPaymentLinkUrl('');
         }
