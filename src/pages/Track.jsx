@@ -33,7 +33,26 @@ export default function Track() {
 
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(orderId.trim().toUpperCase())}`);
-      if (!res.ok) throw new Error('Order not found (is the API running?)');
+      if (!res.ok) {
+        let message = 'Order not found (is the API running?)';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const body = await res.json();
+            if (body?.error) message = String(body.error);
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        await res.text().catch(() => '');
+        throw new Error('Tracking API returned non-JSON (check domain/Vercel protection)');
+      }
+
       const data = await res.json();
       const order = data?.order;
       if (!order?.id) throw new Error('Invalid response');
@@ -127,4 +146,3 @@ export default function Track() {
     </div>
   );
 }
-
