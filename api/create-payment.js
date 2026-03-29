@@ -17,6 +17,8 @@ export default async function handler(req, res) {
 
     if (!Number.isFinite(amount) || amount <= 0) return sendJson(res, 400, { error: 'Invalid amount' });
     if (phone.length !== 10) return sendJson(res, 400, { error: 'Phone must be 10 digits' });
+    if (!process.env.RAZORPAY_KEY_ID) return sendJson(res, 500, { error: 'Missing RAZORPAY_KEY_ID' });
+    if (!process.env.RAZORPAY_KEY_SECRET) return sendJson(res, 500, { error: 'Missing RAZORPAY_KEY_SECRET' });
 
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
@@ -28,6 +30,7 @@ export default async function handler(req, res) {
       currency: 'INR',
       description: 'Test Payment',
       customer: {
+        name: 'Customer',
         contact: phone,
       },
       notify: {
@@ -42,6 +45,22 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error(error);
-    return sendJson(res, 500, { error: 'Error creating payment' });
+    const statusCode = Number(error?.statusCode) || 500;
+    const details =
+      error?.error && typeof error.error === 'object'
+        ? {
+            code: error.error.code || null,
+            description: error.error.description || null,
+            source: error.error.source || null,
+            step: error.error.step || null,
+            reason: error.error.reason || null,
+            field: error.error.field || null,
+          }
+        : null;
+
+    return sendJson(res, statusCode, {
+      error: 'Error creating payment',
+      ...(details ? { details } : {}),
+    });
   }
 }
