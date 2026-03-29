@@ -28,6 +28,7 @@ export default function Delivery() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [paymentLinkUrl, setPaymentLinkUrl] = useState('');
+  const [paymentError, setPaymentError] = useState('');
 
   const subtotal = deliveryItems.reduce((acc, item) => {
     return acc + (item.price * (quantities[item.id] || 0));
@@ -65,6 +66,7 @@ export default function Delivery() {
       .filter((i) => i.quantity > 0);
 
     try {
+      setPaymentError('');
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,17 +85,28 @@ export default function Delivery() {
       setOrderId(finalOrderId);
 
       if (paymentMethod === 'upi') {
+        const digits = String(customerPhone || '').replace(/\D/g, '');
+        const phone10 = digits.length > 10 ? digits.slice(-10) : digits;
         const payRes = await fetch('/api/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total, phone: customerPhone }),
+          body: JSON.stringify({ amount: total, phone: phone10 }),
         });
-        const payData = await payRes.json().catch(() => ({}));
+        let payData = {};
+        const contentType = payRes.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          payData = await payRes.json().catch(() => ({}));
+        } else {
+          await payRes.text().catch(() => '');
+          payData = { error: 'Payment API returned non-JSON (check Vercel protection)' };
+        }
+
         if (payRes.ok && payData?.link) {
           window.location.href = payData.link;
           return;
         } else {
           setPaymentLinkUrl('');
+          setPaymentError(payData?.error ? String(payData.error) : 'Could not generate the payment link');
         }
       } else {
         setPaymentLinkUrl('');
@@ -105,6 +118,7 @@ export default function Delivery() {
       const generatedId = 'JK-' + Math.floor(1000 + Math.random() * 9000);
       setOrderId(generatedId);
       setPaymentLinkUrl('');
+      setPaymentError('');
       setStep('success');
     }
   };
@@ -116,6 +130,7 @@ export default function Delivery() {
     setCustomerPhone('');
     setDeliveryAddress('');
     setPaymentLinkUrl('');
+    setPaymentError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -303,7 +318,9 @@ export default function Delivery() {
                  <div style={{ marginBottom: '2rem', background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0,0,0,0.08)', padding: '1rem' }}>
                    <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-main)' }}>UPI Payment Link</div>
                    <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.4' }}>
-                     {paymentLinkUrl ? 'A payment request link has been generated and SMS will be triggered by Razorpay to your number.' : 'Could not generate the payment link (check Razorpay keys + phone number).'} 
+                     {paymentLinkUrl
+                       ? 'A payment request link has been generated and SMS will be triggered by Razorpay to your number.'
+                       : paymentError || 'Could not generate the payment link (check Razorpay keys + phone number).'} 
                    </div>
                    {paymentLinkUrl && (
                      <a href={paymentLinkUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
