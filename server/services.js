@@ -60,6 +60,8 @@ export function normalizeOrderPayload(payload) {
 
   return {
     customerName: typeof payload?.customerName === 'string' ? payload.customerName : null,
+    customerPhone: typeof payload?.customerPhone === 'string' ? payload.customerPhone : null,
+    deliveryAddress: typeof payload?.deliveryAddress === 'string' ? payload.deliveryAddress : null,
     paymentMethod: typeof payload?.paymentMethod === 'string' ? payload.paymentMethod : null,
     items: cleanItems,
   };
@@ -103,6 +105,8 @@ export async function createOrder(prisma, payload) {
     data: {
       id,
       customerName: normalized.customerName,
+      customerPhone: normalized.customerPhone,
+      deliveryAddress: normalized.deliveryAddress,
       paymentMethod: normalized.paymentMethod,
       status: OrderStatus.Pending,
       ...totals,
@@ -142,4 +146,3 @@ export async function setOrderStatus(prisma, id, uiStatus) {
 
   return { order: { id: order.id, status: toUiStatus(order.status) } };
 }
-

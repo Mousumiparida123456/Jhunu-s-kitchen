@@ -14,7 +14,19 @@ export default function Menu() {
         setLoading(true);
         setError('');
         const res = await fetch('/api/menu');
-        if (!res.ok) throw new Error('Failed to load menu');
+        if (!res.ok) {
+          let message = `Failed to load menu (HTTP ${res.status})`;
+          try {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const body = await res.json();
+              if (body?.error) message = String(body.error);
+            }
+          } catch {
+            // ignore
+          }
+          throw new Error(message);
+        }
         const data = await res.json();
         if (!cancelled) setItems(Array.isArray(data.items) ? data.items : []);
       } catch (e) {

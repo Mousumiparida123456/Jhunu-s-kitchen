@@ -33,7 +33,11 @@ model MenuItem {
 model Order {
   id            String      @id
   customerName  String?
+  customerPhone String?
+  deliveryAddress String?
   paymentMethod String?
+  paymentLinkId String?
+  paymentLinkUrl String?
   status        OrderStatus @default(Pending)
   subtotalRupees Int
   discountRupees Int

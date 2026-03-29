@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from './prisma.js';
 import { createOrder, getOrder, listMenu, listOrders, setOrderStatus } from './services.js';
+import { createRazorpayPaymentLinkForOrder } from './razorpayPaymentLink.js';
 
 export function createApp() {
   const app = express();
@@ -42,6 +43,31 @@ export function createApp() {
     }
   });
 
+  app.post('/api/payments/create', async (req, res) => {
+    try {
+      const payload = await createRazorpayPaymentLinkForOrder({
+        orderId: req.body?.orderId,
+        phone: req.body?.phone,
+        prisma,
+      });
+      res.json(payload);
+    } catch (e) {
+      res.status(e?.statusCode || 500).json({
+        error: e?.message || 'Error',
+        ...(e?.details ? { details: e.details } : {}),
+      });
+    }
+  });
+
+  // Ensure async route errors return JSON for API callers.
+  // Express 5 forwards rejected promises to this middleware automatically.
+  app.use((err, req, res, next) => {
+    if (!req.path?.startsWith('/api/')) return next(err);
+
+    const statusCode = Number(err?.statusCode) || 500;
+    const message = typeof err?.message === 'string' && err.message.trim() ? err.message : 'Internal Server Error';
+    res.status(statusCode).json({ error: message });
+  });
+
   return app;
 }
-

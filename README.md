@@ -68,6 +68,8 @@ In your Vercel project dashboard, create a Postgres database (Storage). Copy the
 Set these in Vercel (Project → Settings → Environment Variables):
 - `DATABASE_URL` = your pooled/runtime connection string (Prisma/pgbouncer is OK)
 - `DIRECT_URL` = your non-pooled/direct connection string (recommended for Prisma schema pushes/migrations)
+- `RAZORPAY_KEY_ID` = Razorpay key id
+- `RAZORPAY_KEY_SECRET` = Razorpay key secret
 
 ### 3) Push schema + seed (one-time)
 
@@ -81,3 +83,9 @@ npm run db:seed
 ### 4) Deploy
 
 Push to GitHub and import the repo in Vercel. Vercel will build the frontend (`vite build`) and serve API routes from `api/*`. React Router refreshes work because `vercel.json` rewrites to `index.html`.
+
+## UPI payment request SMS (Razorpay Payment Links)
+
+When a user selects UPI and submits payment on `/delivery`, the app:
+1) creates the order in Postgres, then
+2) calls `POST /api/payments/create` which creates a Razorpay Payment Link and triggers SMS via Razorpay (`notify.sms: true`).

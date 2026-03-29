@@ -24,6 +24,10 @@ export default function Delivery() {
   const [step, setStep] = useState('order'); // 'order', 'payment', 'success'
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [orderId, setOrderId] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [paymentLinkUrl, setPaymentLinkUrl] = useState('');
 
   const subtotal = deliveryItems.reduce((acc, item) => {
     return acc + (item.price * (quantities[item.id] || 0));
@@ -65,7 +69,9 @@ export default function Delivery() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: 'Guest',
+          customerName: customerName.trim() || 'Guest',
+          customerPhone: customerPhone.trim(),
+          deliveryAddress: deliveryAddress.trim(),
           paymentMethod,
           items: orderItems,
         }),
@@ -73,12 +79,31 @@ export default function Delivery() {
       if (!res.ok) throw new Error('Failed to place order');
       const data = await res.json();
       const createdId = data?.order?.id;
-      setOrderId(createdId || 'JK-' + Math.floor(1000 + Math.random() * 9000));
+      const finalOrderId = createdId || 'JK-' + Math.floor(1000 + Math.random() * 9000);
+      setOrderId(finalOrderId);
+
+      if (paymentMethod === 'upi') {
+        const payRes = await fetch('/api/payments/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: finalOrderId, phone: customerPhone }),
+        });
+        const payData = await payRes.json().catch(() => ({}));
+        if (payRes.ok && payData?.paymentLink?.url) {
+          setPaymentLinkUrl(payData.paymentLink.url);
+        } else {
+          setPaymentLinkUrl('');
+        }
+      } else {
+        setPaymentLinkUrl('');
+      }
+
       setStep('success');
     } catch {
       // Fallback: keep the existing demo flow if the API isn't running yet.
       const generatedId = 'JK-' + Math.floor(1000 + Math.random() * 9000);
       setOrderId(generatedId);
+      setPaymentLinkUrl('');
       setStep('success');
     }
   };
@@ -86,6 +111,10 @@ export default function Delivery() {
   const resetOrder = () => {
     setQuantities({});
     setStep('order');
+    setCustomerName('');
+    setCustomerPhone('');
+    setDeliveryAddress('');
+    setPaymentLinkUrl('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -140,17 +169,38 @@ export default function Delivery() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                   <div>
                     <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: 'var(--text-main)'}}>Your Loving Name</label>
-                    <input type="text" required style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', outline: 'none' }} placeholder="e.g. Rahul Sharma" />
+                    <input
+                      type="text"
+                      required
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', outline: 'none' }}
+                      placeholder="e.g. Rahul Sharma"
+                    />
                   </div>
 
                   <div>
                     <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: 'var(--text-main)'}}>Delivery Address</label>
-                    <textarea required rows="3" style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none' }} placeholder="Door number, street, landmark..."></textarea>
+                    <textarea
+                      required
+                      rows="3"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none' }}
+                      placeholder="Door number, street, landmark..."
+                    ></textarea>
                   </div>
 
                   <div>
                     <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: 'var(--text-main)'}}>Contact Number</label>
-                    <input type="tel" required style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', outline: 'none' }} placeholder="10-digit mobile number" />
+                    <input
+                      type="tel"
+                      required
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(62, 39, 35, 0.2)', fontFamily: 'var(--font-body)', outline: 'none' }}
+                      placeholder="10-digit mobile number"
+                    />
                   </div>
 
                   <div>
@@ -247,6 +297,21 @@ export default function Delivery() {
                  Your order worth ₹ {total} has been placed. Jhunu is whipping up your meal right now!<br/><br/>
                  <strong style={{ color: 'var(--text-main)', fontSize: '1.2rem' }}>Order ID: {orderId}</strong>
                </p>
+
+               {paymentMethod === 'upi' && (
+                 <div style={{ marginBottom: '2rem', background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0,0,0,0.08)', padding: '1rem' }}>
+                   <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-main)' }}>UPI Payment Link</div>
+                   <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.4' }}>
+                     {paymentLinkUrl ? 'A payment request link has been generated and SMS will be triggered by Razorpay to your number.' : 'Could not generate the payment link (check Razorpay keys + phone number).'} 
+                   </div>
+                   {paymentLinkUrl && (
+                     <a href={paymentLinkUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
+                       Open Payment Link
+                     </a>
+                   )}
+                 </div>
+               )}
+
                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                  <button onClick={() => window.location.href='/track'} className="btn btn-secondary glass" style={{ padding: '0.8rem 1.5rem' }}>
                    Track Order

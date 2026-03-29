@@ -7,19 +7,20 @@
     "dev": "vite",
     "dev:api": "node server/devServer.js",
     "dev:full": "concurrently -n api,web -c yellow,cyan \"npm run dev:api\" \"npm run dev\"",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:push": "prisma db push",
+    "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev --skip-generate",
+    "db:deploy": "prisma migrate deploy --skip-generate",
+    "db:push": "prisma db push --skip-generate",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate",
-    "build": "vite build",
+    "build": "npm run prisma:generate && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@prisma/client": "^6.14.0",
+    "@prisma/client": "6.19.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
@@ -36,7 +37,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
-    "prisma": "^6.14.0",
+    "prisma": "6.19.2",
     "vite": "^8.0.1"
   }
 }
