@@ -71,7 +71,7 @@ export default function Menu() {
 
         {!loading && error && (
           <div className="text-center" style={{ padding: '2rem 0', color: 'var(--primary)' }}>
-            {error} (is the API running?)
+            {error}
           </div>
         )}
 

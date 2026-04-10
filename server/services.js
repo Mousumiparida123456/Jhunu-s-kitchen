@@ -1,12 +1,18 @@
 import { OrderStatus } from '@prisma/client';
 import { generateOrderId } from './orderId.js';
+import { fallbackMenuItems } from './menuSeedData.js';
 import { fromUiStatus, toUiStatus } from './status.js';
 
 export async function listMenu(prisma) {
-  const items = await prisma.menuItem.findMany({
-    orderBy: [{ category: 'asc' }, { name: 'asc' }],
-  });
-  return { items };
+  try {
+    const items = await prisma.menuItem.findMany({
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+    return { items };
+  } catch (error) {
+    console.error('Failed to load menu from database, serving fallback menu instead.', error);
+    return { items: fallbackMenuItems };
+  }
 }
 
 export async function listOrders(prisma) {
