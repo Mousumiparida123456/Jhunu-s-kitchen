@@ -61,8 +61,13 @@ export default function Track() {
         id: order.id,
         status: order.status,
         items: Array.isArray(order.items) ? order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ') : '',
-        estimatedTime: order.status === 'Delivered' ? 'Delivered' : '25-30 min',
+        estimatedTime: order.estimatedDeliveryLabel || (order.status === 'Delivered' ? 'Delivered' : '25-30 min'),
+        customerName: order.customerName,
+        address: order.deliveryAddress,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
         steps: buildSteps(order.status),
+        timeline: Array.isArray(order.timeline) ? order.timeline : [],
       });
     } catch (e2) {
       setError(e2?.message || 'Failed to track order');
@@ -107,6 +112,13 @@ export default function Track() {
                 <strong style={{ color: 'var(--accent-olive)', fontSize: '1.2rem' }}>{trackingData.estimatedTime}</strong>
               </div>
 
+              <div style={{ marginBottom: '2rem', background: '#fff', padding: '1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(0,0,0,0.05)', display: 'grid', gap: '0.5rem' }}>
+                <div><strong>Customer:</strong> {trackingData.customerName}</div>
+                <div><strong>Items:</strong> {trackingData.items}</div>
+                <div><strong>Payment:</strong> {trackingData.paymentMethod} ({trackingData.paymentStatus})</div>
+                <div><strong>Address:</strong> {trackingData.address}</div>
+              </div>
+
               <div style={{ position: 'relative', paddingLeft: '28px', borderLeft: '3px solid rgba(62, 39, 35, 0.1)' }}>
                 {trackingData.steps.map((step, index) => (
                   <div key={index} style={{ marginBottom: index === trackingData.steps.length - 1 ? '0' : '2.5rem', position: 'relative' }}>
@@ -139,6 +151,19 @@ export default function Track() {
                   </div>
                 ))}
               </div>
+
+              {trackingData.timeline.length > 0 && (
+                <div style={{ marginTop: '2rem', background: '#fff', padding: '1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontWeight: '700', marginBottom: '0.75rem', color: 'var(--text-main)' }}>Backend Timeline</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {trackingData.timeline.map((entry) => (
+                      <div key={`${entry.status}-${entry.changedAt}`} style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                        <strong style={{ color: 'var(--text-main)' }}>{entry.label || entry.status}</strong> - {entry.note}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

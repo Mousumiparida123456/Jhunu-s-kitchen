@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 export function generateOrderId() {
-  const num = crypto.randomInt(1000, 10000);
-  return `JK-${num}`;
+  const date = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  const token = crypto.randomBytes(2).toString('hex').toUpperCase();
+  return `JK-${date}-${token}`;
 }
-

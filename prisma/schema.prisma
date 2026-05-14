@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 enum OrderStatus {
@@ -13,6 +12,14 @@ enum OrderStatus {
   Preparing
   OutForDelivery
   Delivered
+}
+
+enum PaymentStatus {
+  Pending
+  PaymentLinkGenerated
+  Paid
+  CashOnDelivery
+  Failed
 }
 
 model MenuItem {
@@ -31,22 +38,27 @@ model MenuItem {
 }
 
 model Order {
-  id            String      @id
-  customerName  String?
-  customerPhone String?
-  deliveryAddress String?
-  paymentMethod String?
-  paymentLinkId String?
-  paymentLinkUrl String?
-  status        OrderStatus @default(Pending)
-  subtotalRupees Int
-  discountRupees Int
+  id                   String        @id
+  customerName         String?
+  customerPhone        String?
+  deliveryAddress      String?
+  specialInstructions  String?
+  paymentMethod        String?
+  paymentStatus        PaymentStatus @default(Pending)
+  paymentLinkId        String?
+  paymentLinkUrl       String?
+  source               String        @default("web")
+  status               OrderStatus   @default(Pending)
+  statusTimeline       Json?
+  estimatedDeliveryAt  DateTime?
+  subtotalRupees       Int
+  discountRupees       Int
   deliveryChargeRupees Int
-  totalRupees   Int
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  totalRupees          Int
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
-  items         OrderItem[]
+  items                OrderItem[]
 
   @@index([createdAt])
   @@index([status])

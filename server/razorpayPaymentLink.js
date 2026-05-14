@@ -90,6 +90,7 @@ export async function createRazorpayPaymentLinkForOrder({
     where: { id: order.id },
     data: {
       customerPhone: order.customerPhone || cleanPhone,
+      paymentStatus: 'PaymentLinkGenerated',
       paymentLinkId,
       paymentLinkUrl,
     },
@@ -103,4 +104,3 @@ export async function createRazorpayPaymentLinkForOrder({
     },
   };
 }
-

@@ -1,14 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-const mockOrders = [
-  { id: 'JK-4921', customer: 'Rahul Sharma', items: '2x Chicken Biryani, 1x Masala Cola', total: 560, status: 'Pending', time: '10 mins ago', instructions: 'Make it spicy!' },
-  { id: 'JK-4920', customer: 'Priya Patel', items: '1x Margherita Pizza', total: 220, status: 'Preparing', time: '25 mins ago', instructions: 'Extra cheese please.' },
-  { id: 'JK-4919', customer: 'Amit Singh', items: '3x Momo, 2x Sweet Lassi', total: 540, status: 'Out for Delivery', time: '45 mins ago', instructions: 'Call before arriving.' },
-];
-
 function formatTimeAgo(value) {
   if (!value) return '';
-  if (value.includes?.('ago')) return value;
 
   const ts = new Date(value).getTime();
   if (!Number.isFinite(ts)) return value;
@@ -26,8 +19,31 @@ function formatTimeAgo(value) {
   return days === 1 ? '1 day ago' : `${days} days ago`;
 }
 
+function getStatusColor(status) {
+  switch (status) {
+    case 'Pending':
+      return '#d32f2f';
+    case 'Preparing':
+      return '#ffb300';
+    case 'Out for Delivery':
+      return '#f57f17';
+    case 'Delivered':
+      return '#4caf50';
+    default:
+      return '#757575';
+  }
+}
+
 export default function Admin() {
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState([]);
+  const [metrics, setMetrics] = useState({
+    liveOrders: 0,
+    ordersToday: 0,
+    revenueToday: 0,
+    avgOrderValue: 0,
+    menuItems: 0,
+  });
+  const [topItems, setTopItems] = useState([]);
   const [apiOnline, setApiOnline] = useState(false);
 
   useEffect(() => {
@@ -35,11 +51,19 @@ export default function Admin() {
 
     async function load() {
       try {
-        const res = await fetch('/api/orders');
-        if (!res.ok) throw new Error('API error');
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data.orders)) {
-          setOrders(data.orders);
+        const [dashboardRes, ordersRes] = await Promise.all([
+          fetch('/api/dashboard'),
+          fetch('/api/orders'),
+        ]);
+        if (!dashboardRes.ok || !ordersRes.ok) throw new Error('API error');
+
+        const dashboardData = await dashboardRes.json();
+        const ordersData = await ordersRes.json();
+
+        if (!cancelled) {
+          setMetrics(dashboardData?.metrics || {});
+          setTopItems(Array.isArray(dashboardData?.topItems) ? dashboardData.topItems : []);
+          setOrders(Array.isArray(ordersData?.orders) ? ordersData.orders : []);
           setApiOnline(true);
         }
       } catch {
@@ -56,70 +80,86 @@ export default function Admin() {
   }, []);
 
   const updateStatus = async (id, newStatus) => {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o)));
+    setOrders((prev) => prev.map((order) => (order.id === id ? { ...order, status: newStatus } : order)));
 
     try {
-      if (!apiOnline) return;
       const res = await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error('Failed to update');
+      if (!res.ok) throw new Error('Failed');
     } catch {
-      // If the API fails, keep the optimistic UI update (demo-friendly).
+      // Keep the UI optimistic for demos and slow networks.
     }
   };
 
-  const liveOrders = useMemo(() => orders.filter((o) => o.status !== 'Delivered').length, [orders]);
+  const liveOrders = useMemo(() => orders.filter((order) => order.status !== 'Delivered').length, [orders]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Pending':
-        return '#d32f2f'; // Primary Red
-      case 'Preparing':
-        return '#ffb300'; // Turmeric
-      case 'Out for Delivery':
-        return '#f57f17'; // Saffron
-      case 'Delivered':
-        return '#4caf50'; // Olive Green
-      default:
-        return '#757575';
-    }
-  };
+  const metricCards = [
+    { label: 'Live Orders', value: metrics.liveOrders ?? liveOrders },
+    { label: 'Orders Today', value: metrics.ordersToday ?? 0 },
+    { label: 'Revenue Today', value: `Rs. ${metrics.revenueToday ?? 0}` },
+    { label: 'Avg Order Value', value: `Rs. ${metrics.avgOrderValue ?? 0}` },
+  ];
 
   return (
     <div className="page-admin" style={{ paddingTop: '120px', minHeight: '80vh', paddingBottom: '4rem', background: '#fdfbfa' }}>
       <div className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '2.5rem', fontFamily: 'var(--font-heading)', color: 'var(--text-main)' }}>Jhunu's Dashboard</h1>
+            <h1 style={{ fontSize: '2.5rem', fontFamily: 'var(--font-heading)', color: 'var(--text-main)' }}>Operations Dashboard</h1>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.35rem' }}>
-              {apiOnline ? 'Database connected' : 'Using demo data (start the API to connect DB)'}
+              {apiOnline ? 'Backend analytics, order queue, and status workflow are live.' : 'API offline. Start the backend to see real data.'}
             </div>
           </div>
-          <span style={{ padding: '0.6rem 1.2rem', background: 'var(--accent-olive)', color: '#fff', borderRadius: 'var(--radius-sm)', fontWeight: '600', fontSize: '1.1rem' }}>
-            Live Orders: {liveOrders}
+          <span style={{ padding: '0.6rem 1.2rem', background: 'var(--accent-olive)', color: '#fff', borderRadius: 'var(--radius-sm)', fontWeight: '600', fontSize: '1.05rem' }}>
+            Menu Items: {metrics.menuItems ?? 0}
           </span>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          {metricCards.map((card) => (
+            <div key={card.label} style={{ background: '#fff', borderRadius: 'var(--radius-md)', padding: '1.1rem', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.35rem' }}>{card.label}</div>
+              <div style={{ color: 'var(--text-main)', fontWeight: '700', fontSize: '1.4rem' }}>{card.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {topItems.length > 0 && (
+          <div style={{ marginBottom: '2rem', background: '#fff', borderRadius: 'var(--radius-lg)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.9rem' }}>Top Selling Items</div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {topItems.map((item) => (
+                <div key={item.name} style={{ padding: '0.65rem 0.9rem', background: 'var(--surface)', borderRadius: '999px', color: 'var(--text-main)' }}>
+                  {item.name} x {item.quantity}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {orders.map((order) => (
             <div key={order.id} style={{ background: '#fff', padding: '1.5rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', borderTop: `5px solid ${getStatusColor(order.status)}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-                <strong style={{ fontSize: '1.3rem', color: 'var(--primary)', fontFamily: 'var(--font-heading)' }}>{order.id}</strong>
+                <strong style={{ fontSize: '1.15rem', color: 'var(--primary)', fontFamily: 'var(--font-heading)' }}>{order.id}</strong>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{formatTimeAgo(order.time)}</span>
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <p style={{ fontWeight: '600', marginBottom: '0.3rem', fontSize: '1.1rem', color: 'var(--text-main)' }}>{order.customer}</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                  {order.items} <br /> <strong style={{ color: 'var(--text-main)' }}>Total: ₹ {order.total}</strong>
-                </p>
+              <div style={{ marginBottom: '1rem', display: 'grid', gap: '0.35rem' }}>
+                <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{order.customer}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{order.items}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>{order.address}</div>
+                <div style={{ color: 'var(--text-main)', fontWeight: '600' }}>Total: Rs. {order.total}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
+                  {order.paymentMethod} / {order.paymentStatus}
+                </div>
                 {order.instructions && (
-                  <p style={{ fontSize: '0.9rem', color: 'var(--accent)', marginTop: '0.5rem', fontStyle: 'italic', background: 'var(--surface)', padding: '0.5rem', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '0.92rem', color: 'var(--accent)', marginTop: '0.25rem', fontStyle: 'italic', background: 'var(--surface)', padding: '0.6rem', borderRadius: '6px' }}>
                     Note: {order.instructions}
-                  </p>
+                  </div>
                 )}
               </div>
 

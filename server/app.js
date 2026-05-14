@@ -1,6 +1,6 @@
 import express from 'express';
 import { prisma } from './prisma.js';
-import { createOrder, getOrder, listMenu, listOrders, setOrderStatus } from './services.js';
+import { createOrder, getDashboardOverview, getOrder, listMenu, listOrders, setOrderStatus } from './services.js';
 import { createRazorpayPaymentLinkForOrder } from './razorpayPaymentLink.js';
 
 export function createApp() {
@@ -16,6 +16,11 @@ export function createApp() {
 
   app.get('/api/orders', async (_req, res) => {
     const payload = await listOrders(prisma);
+    res.json(payload);
+  });
+
+  app.get('/api/dashboard', async (_req, res) => {
+    const payload = await getDashboardOverview(prisma);
     res.json(payload);
   });
 
