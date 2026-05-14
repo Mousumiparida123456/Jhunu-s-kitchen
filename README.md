@@ -7,58 +7,80 @@ Currently, two official plugins are available:
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## React Compiler
+## Backend + Database (Self-hosted Postgres + Prisma)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This project has:
+- React frontend (Vite)
+- Node/Express backend (`server/*` + `api/*`)
+- Prisma ORM with PostgreSQL
 
-## Expanding the ESLint configuration
+You can run your own PostgreSQL with Docker (no Supabase dependency).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
-## Database (Local SQLite + Prisma) + API
-
-This project is a Vite + React frontend. Prisma uses a local SQLite database file in this repo, and the API is provided in two ways:
-- Local dev API server: `server/devServer.js`
-- Vercel serverless functions: `api/*`
-
-### 1) Install dependencies
+## 1) Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2) Create your env file
+## 2) Start PostgreSQL locally (Docker)
+
+```bash
+docker compose up -d
+```
+
+This uses [`docker-compose.yml`](./docker-compose.yml) and creates a local DB:
+- host: `localhost`
+- port: `5432`
+- db: `jhunu_kitchen`
+- user: `postgres`
+- password: `postgres`
+
+## 3) Create env file
 
 ```bash
 copy .env.example .env
 ```
 
-### 3) Create local DB schema
+## 4) Generate Prisma client + apply schema + seed
 
 ```bash
+npm run prisma:generate
 npm run db:push
-```
-
-### 4) Seed menu items
-
-```bash
 npm run db:seed
 ```
 
-### 5) Run API + frontend together
+## 5) Run backend + frontend
 
 ```bash
 npm run dev:full
 ```
 
-Then open the app and check:
-- `http://localhost:5173/menu` (menu loads from DB)
-- `http://localhost:5173/delivery` (place an order, saved in DB)
-- `http://localhost:5173/admin` (orders + status updates)
-- `http://localhost:5173/track` (tracks by Order ID)
+Then open:
+- `http://localhost:5173/menu`
+- `http://localhost:5173/delivery`
+- `http://localhost:5173/admin`
+- `http://localhost:5173/track`
+
+## Production (without Supabase)
+
+Use any PostgreSQL you control (for example: your VPS Docker Postgres, Railway Postgres, Neon, Render Postgres, or managed PG on cloud VM).
+
+Set these env vars in your hosting platform:
+- `DATABASE_URL` = pooled/runtime Postgres URL
+- `DIRECT_URL` = direct Postgres URL (for Prisma migrations/push)
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `API_PORT` (optional; defaults to `5174` locally)
+
+After setting DB URLs, run once:
+
+```bash
+npm run db:push
+npm run db:seed
+```
 
 ## UPI payment request SMS (Razorpay Payment Links)
 
 When a user selects UPI and submits payment on `/delivery`, the app:
-1) creates the order in SQLite, then
-2) calls `POST /api/payments/create` which creates a Razorpay Payment Link and triggers SMS via Razorpay (`notify.sms: true`).
+1) creates the order in PostgreSQL, then
+2) calls `POST /api/payments/create` to create a Razorpay Payment Link and trigger SMS (`notify.sms: true`).
