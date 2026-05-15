@@ -166,6 +166,27 @@ export default function Admin() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                 <span style={{ fontWeight: '700', color: getStatusColor(order.status), fontSize: '1rem' }}>{order.status}</span>
 
+                {order.paymentStatus !== 'Paid' && (
+                  <button 
+                    onClick={async () => {
+                      if (!window.confirm('Mark this order as paid manually?')) return;
+                      try {
+                        const res = await fetch('/api/payments/mock-success', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ orderId: order.id }),
+                        });
+                        if (res.ok) window.location.reload();
+                      } catch {
+                        window.alert('Failed to update payment status');
+                      }
+                    }} 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', marginRight: '0.5rem' }}
+                  >
+                    Mark Paid
+                  </button>
+                )}
                 {order.status === 'Pending' && (
                   <button onClick={() => updateStatus(order.id, 'Preparing')} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
                     Accept

@@ -337,9 +337,44 @@ export default function Delivery() {
                     {paymentLinkUrl ? 'The backend generated a payment link and attached it to your order.' : paymentError || 'Payment link is not available yet.'}
                   </div>
                   {paymentLinkUrl && (
-                    <a href={paymentLinkUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '0.85rem', fontWeight: '700', color: 'var(--primary)' }}>
-                      Open payment link
-                    </a>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.85rem' }}>
+                      <a href={paymentLinkUrl} target="_blank" rel="noreferrer" style={{ fontWeight: '700', color: 'var(--primary)' }}>
+                        Open payment link
+                      </a>
+                      
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/payments/mock-success', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ orderId }),
+                            });
+                            if (res.ok) {
+                              window.alert('Payment simulated successfully! You can now track your order.');
+                              window.location.href = '/track';
+                            } else {
+                              const err = await res.json();
+                              window.alert(`Error: ${err.error}`);
+                            }
+                          } catch (e) {
+                            window.alert('Simulation failed.');
+                          }
+                        }}
+                        style={{ 
+                          padding: '0.5rem 0.8rem', 
+                          fontSize: '0.85rem', 
+                          background: '#e8f5e9', 
+                          color: '#2e7d32', 
+                          border: '1px solid #2e7d32', 
+                          borderRadius: '4px', 
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Simulate Payment Success (Dummy Mode)
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

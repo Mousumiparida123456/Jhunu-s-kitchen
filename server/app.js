@@ -64,6 +64,43 @@ export function createApp() {
     }
   });
 
+  app.post('/api/payments/mock-success', async (req, res) => {
+    try {
+      const { orderId } = req.body;
+      if (!orderId) return res.status(400).json({ error: 'orderId required' });
+
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      const updated = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: 'Paid',
+          status: 'Preparing',
+          statusTimeline: [
+            ...(Array.isArray(order.statusTimeline) ? order.statusTimeline : []),
+            {
+              status: 'Paid',
+              label: 'Payment Successful',
+              note: 'Payment confirmed via mock success simulator.',
+              changedAt: new Date().toISOString(),
+            },
+            {
+              status: 'Preparing',
+              label: 'Preparing',
+              note: 'Kitchen is now preparing your order.',
+              changedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      });
+
+      res.json({ ok: true, order: { id: updated.id, status: updated.status, paymentStatus: updated.paymentStatus } });
+    } catch (e) {
+      res.status(500).json({ error: e?.message || 'Error' });
+    }
+  });
+
   // Ensure async route errors return JSON for API callers.
   // Express 5 forwards rejected promises to this middleware automatically.
   app.use((err, req, res, next) => {

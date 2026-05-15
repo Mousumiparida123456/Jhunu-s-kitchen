@@ -19,8 +19,9 @@ export async function createRazorpayPaymentLinkForOrder({
   phone,
   prisma = defaultPrisma,
 }) {
-  const keyId = requiredEnv('RAZORPAY_KEY_ID');
-  const keySecret = requiredEnv('RAZORPAY_KEY_SECRET');
+  const isMock = process.env.MOCK_PAYMENT === 'true';
+  const keyId = isMock ? 'mock_key' : requiredEnv('RAZORPAY_KEY_ID');
+  const keySecret = isMock ? 'mock_secret' : requiredEnv('RAZORPAY_KEY_SECRET');
 
   const cleanPhone = toDigits(phone);
   if (cleanPhone.length !== 10) {
@@ -43,48 +44,57 @@ export async function createRazorpayPaymentLinkForOrder({
     throw err;
   }
 
-  const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+  let paymentLinkId = null;
+  let paymentLinkUrl = null;
 
-  const payload = {
-    amount: amountPaise,
-    currency: 'INR',
-    reference_id: order.id,
-    description: `Jhunu's Kitchen - Order ${order.id}`,
-    customer: {
-      name: order.customerName || 'Customer',
-      contact: cleanPhone,
-    },
-    notify: { sms: true },
-    reminder_enable: false,
-    notes: { order_id: order.id },
-  };
+  if (isMock) {
+    // Return a mock payment link
+    paymentLinkId = `plink_mock_${Math.random().toString(36).substring(2, 9)}`;
+    paymentLinkUrl = `https://rzp.io/i/mock-${order.id}`;
+  } else {
+    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 
-  const rpRes = await fetch('https://api.razorpay.com/v1/payment_links', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+    const payload = {
+      amount: amountPaise,
+      currency: 'INR',
+      reference_id: order.id,
+      description: `Jhunu's Kitchen - Order ${order.id}`,
+      customer: {
+        name: order.customerName || 'Customer',
+        contact: cleanPhone,
+      },
+      notify: { sms: true },
+      reminder_enable: false,
+      notes: { order_id: order.id },
+    };
 
-  const rpText = await rpRes.text();
-  let rpJson = null;
-  try {
-    rpJson = JSON.parse(rpText);
-  } catch {
-    rpJson = null;
+    const rpRes = await fetch('https://api.razorpay.com/v1/payment_links', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const rpText = await rpRes.text();
+    let rpJson = null;
+    try {
+      rpJson = JSON.parse(rpText);
+    } catch {
+      rpJson = null;
+    }
+
+    if (!rpRes.ok) {
+      const err = new Error('Failed to create payment link');
+      err.statusCode = 502;
+      err.details = rpJson || rpText;
+      throw err;
+    }
+
+    paymentLinkId = rpJson?.id || null;
+    paymentLinkUrl = rpJson?.short_url || rpJson?.shortUrl || rpJson?.url || null;
   }
-
-  if (!rpRes.ok) {
-    const err = new Error('Failed to create payment link');
-    err.statusCode = 502;
-    err.details = rpJson || rpText;
-    throw err;
-  }
-
-  const paymentLinkId = rpJson?.id || null;
-  const paymentLinkUrl = rpJson?.short_url || rpJson?.shortUrl || rpJson?.url || null;
 
   await prisma.order.update({
     where: { id: order.id },
@@ -101,6 +111,7 @@ export async function createRazorpayPaymentLinkForOrder({
     paymentLink: {
       id: paymentLinkId,
       url: paymentLinkUrl,
+      isMock,
     },
   };
 }
