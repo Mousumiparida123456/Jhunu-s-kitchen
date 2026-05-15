@@ -357,7 +357,7 @@ export default function Delivery() {
                               const err = await res.json();
                               window.alert(`Error: ${err.error}`);
                             }
-                          } catch (e) {
+                          } catch {
                             window.alert('Simulation failed.');
                           }
                         }}

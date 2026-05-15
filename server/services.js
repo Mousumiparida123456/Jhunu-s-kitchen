@@ -12,6 +12,17 @@ function createHttpError(statusCode, message) {
   return err;
 }
 
+function isDbUnavailableError(error) {
+  const msg = String(error?.message || '');
+  return (
+    msg.includes("Can't reach database server") ||
+    msg.includes('Unable to open the database file') ||
+    msg.includes('Error code 14') ||
+    msg.includes('Invalid `prisma.') ||
+    msg.includes('P1001')
+  );
+}
+
 function trimOrNull(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -214,17 +225,33 @@ function validateOrderPayload(normalized) {
 export async function createOrder(prisma, payload) {
   const normalized = normalizeOrderPayload(payload);
   validateOrderPayload(normalized);
-  const hydratedItems = await hydrateOrderItems(prisma, normalized.items);
+  let hydratedItems = [];
+  const isMockPayment = process.env.MOCK_PAYMENT === 'true';
+  try {
+    hydratedItems = await hydrateOrderItems(prisma, normalized.items);
+  } catch (error) {
+    if (!isMockPayment || !isDbUnavailableError(error)) throw error;
+    hydratedItems = normalized.items.map((item) => ({
+      menuItemId: item.menuItemId,
+      name: item.name,
+      priceRupees: Math.max(0, Math.round(item.priceRupees || 0)),
+      quantity: Math.max(1, Math.round(item.quantity || 1)),
+    }));
+  }
 
   const totals = computeTotals(hydratedItems);
 
   let id = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const candidate = generateOrderId();
-    const exists = await prisma.order.findUnique({ where: { id: candidate } });
-    if (!exists) {
-      id = candidate;
-      break;
+  if (isMockPayment) {
+    id = generateOrderId();
+  } else {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateOrderId();
+      const exists = await prisma.order.findUnique({ where: { id: candidate } });
+      if (!exists) {
+        id = candidate;
+        break;
+      }
     }
   }
   if (!id) {
@@ -233,7 +260,8 @@ export async function createOrder(prisma, payload) {
     throw err;
   }
 
-  const order = await prisma.order.create({
+  try {
+    const order = await prisma.order.create({
       data: {
         id,
         customerName: normalized.customerName,
@@ -256,17 +284,30 @@ export async function createOrder(prisma, payload) {
       },
     },
     include: { items: true },
-  });
+    });
 
-  return {
-    order: {
-      id: order.id,
-      status: toUiStatus(order.status),
-      total: order.totalRupees,
-      paymentStatus: order.paymentStatus,
-      estimatedDeliveryAt: order.estimatedDeliveryAt?.toISOString() ?? null,
-    },
-  };
+    return {
+      order: {
+        id: order.id,
+        status: toUiStatus(order.status),
+        total: order.totalRupees,
+        paymentStatus: order.paymentStatus,
+        estimatedDeliveryAt: order.estimatedDeliveryAt?.toISOString() ?? null,
+      },
+    };
+  } catch (error) {
+    if (!isMockPayment || !isDbUnavailableError(error)) throw error;
+    return {
+      order: {
+        id,
+        status: 'Pending',
+        total: totals.totalRupees,
+        paymentStatus: normalized.paymentMethod === 'cod' ? 'CashOnDelivery' : 'Pending',
+        estimatedDeliveryAt: estimateDeliveryIso(OrderStatus.Pending),
+      },
+      mock: true,
+    };
+  }
 }
 
 export async function setOrderStatus(prisma, id, uiStatus) {

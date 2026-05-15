@@ -1,6 +1,14 @@
 import { readJsonBody, sendJson } from '../../server/http.js';
 import { createRazorpayPaymentLinkForOrder } from '../../server/razorpayPaymentLink.js';
 
+function toSafePaymentError(error) {
+  const msg = String(error?.message || '');
+  if (msg.includes('prisma.') || msg.includes("Can't reach database server") || msg.includes('Invalid `prisma.')) {
+    return 'Payment link service is temporarily unavailable. Please try again shortly.';
+  }
+  return msg || 'Payment link generation failed';
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method Not Allowed' });
 
@@ -14,7 +22,7 @@ export default async function handler(req, res) {
     return sendJson(res, 200, payload);
   } catch (e) {
     return sendJson(res, e?.statusCode || 500, {
-      error: e?.message || 'Error',
+      error: toSafePaymentError(e),
       ...(e?.details ? { details: e.details } : {}),
     });
   }

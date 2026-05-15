@@ -14,6 +14,17 @@ function toDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+function isDbConnectivityError(error) {
+  const msg = String(error?.message || '');
+  return (
+    msg.includes("Can't reach database server") ||
+    msg.includes('Connection refused') ||
+    msg.includes('Timed out') ||
+    msg.includes('ECONNREFUSED') ||
+    msg.includes('P1001')
+  );
+}
+
 export async function createRazorpayPaymentLinkForOrder({
   orderId,
   phone,
@@ -30,14 +41,27 @@ export async function createRazorpayPaymentLinkForOrder({
     throw err;
   }
 
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
-  if (!order) {
+  let order = null;
+  try {
+    order = await prisma.order.findUnique({ where: { id: orderId } });
+  } catch (error) {
+    if (!isMock || !isDbConnectivityError(error)) throw error;
+  }
+
+  if (!order && !isMock) {
     const err = new Error('Order not found');
     err.statusCode = 404;
     throw err;
   }
 
-  const amountPaise = Math.round(order.totalRupees * 100);
+  const effectiveOrder = order || {
+    id: orderId || `MOCK-${Date.now()}`,
+    totalRupees: 1,
+    customerName: 'Customer',
+    customerPhone: cleanPhone,
+  };
+
+  const amountPaise = Math.round(effectiveOrder.totalRupees * 100);
   if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
     const err = new Error('Invalid amount');
     err.statusCode = 400;
@@ -50,22 +74,22 @@ export async function createRazorpayPaymentLinkForOrder({
   if (isMock) {
     // Return a mock payment link
     paymentLinkId = `plink_mock_${Math.random().toString(36).substring(2, 9)}`;
-    paymentLinkUrl = `https://rzp.io/i/mock-${order.id}`;
+    paymentLinkUrl = `https://rzp.io/i/mock-${effectiveOrder.id}`;
   } else {
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 
     const payload = {
       amount: amountPaise,
       currency: 'INR',
-      reference_id: order.id,
-      description: `Jhunu's Kitchen - Order ${order.id}`,
+      reference_id: effectiveOrder.id,
+      description: `Jhunu's Kitchen - Order ${effectiveOrder.id}`,
       customer: {
-        name: order.customerName || 'Customer',
+        name: effectiveOrder.customerName || 'Customer',
         contact: cleanPhone,
       },
       notify: { sms: true },
       reminder_enable: false,
-      notes: { order_id: order.id },
+      notes: { order_id: effectiveOrder.id },
     };
 
     const rpRes = await fetch('https://api.razorpay.com/v1/payment_links', {
@@ -96,15 +120,17 @@ export async function createRazorpayPaymentLinkForOrder({
     paymentLinkUrl = rpJson?.short_url || rpJson?.shortUrl || rpJson?.url || null;
   }
 
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      customerPhone: order.customerPhone || cleanPhone,
-      paymentStatus: 'PaymentLinkGenerated',
-      paymentLinkId,
-      paymentLinkUrl,
-    },
-  });
+  if (order) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        customerPhone: order.customerPhone || cleanPhone,
+        paymentStatus: 'PaymentLinkGenerated',
+        paymentLinkId,
+        paymentLinkUrl,
+      },
+    });
+  }
 
   return {
     ok: true,

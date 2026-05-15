@@ -3,6 +3,14 @@ import { prisma } from './prisma.js';
 import { createOrder, getDashboardOverview, getOrder, listMenu, listOrders, setOrderStatus } from './services.js';
 import { createRazorpayPaymentLinkForOrder } from './razorpayPaymentLink.js';
 
+function toSafeErrorMessage(error, fallback) {
+  const msg = String(error?.message || '');
+  if (msg.includes('prisma.') || msg.includes("Can't reach database server") || msg.includes('Invalid `prisma.')) {
+    return fallback;
+  }
+  return msg || fallback;
+}
+
 export function createApp() {
   const app = express();
   app.use(express.json());
@@ -35,7 +43,12 @@ export function createApp() {
       const payload = await createOrder(prisma, req.body);
       res.status(201).json(payload);
     } catch (e) {
-      res.status(e?.statusCode || 500).json({ error: e?.message || 'Error' });
+      const status = e?.statusCode || 500;
+      const fallback =
+        status >= 500
+          ? 'Order service is temporarily unavailable. Please try again in a moment.'
+          : 'Could not place order';
+      res.status(status).json({ error: toSafeErrorMessage(e, fallback) });
     }
   });
 
@@ -57,8 +70,9 @@ export function createApp() {
       });
       res.json(payload);
     } catch (e) {
+      const fallback = 'Payment link service is temporarily unavailable. Please try again shortly.';
       res.status(e?.statusCode || 500).json({
-        error: e?.message || 'Error',
+        error: toSafeErrorMessage(e, fallback),
         ...(e?.details ? { details: e.details } : {}),
       });
     }
