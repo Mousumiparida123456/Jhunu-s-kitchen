@@ -9,6 +9,11 @@ function groupByCategory(items) {
   }, {});
 }
 
+function makeLocalOrderId() {
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `JK-${Date.now().toString().slice(-6)}-${rand}`;
+}
+
 export default function Delivery() {
   const [menuItems, setMenuItems] = useState([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
@@ -93,6 +98,7 @@ export default function Delivery() {
     setPaymentLinkUrl('');
 
     try {
+      let createdOrderId = '';
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,26 +114,42 @@ export default function Delivery() {
 
       const orderData = await orderRes.json().catch(() => ({}));
       if (!orderRes.ok) {
-        throw new Error(orderData?.error || 'Failed to place order');
+        createdOrderId = makeLocalOrderId();
+        setPaymentError(orderData?.error || 'Backend unavailable, continuing in dummy mode.');
+      } else {
+        createdOrderId = orderData?.order?.id || '';
       }
 
-      const createdOrderId = orderData?.order?.id;
       setOrderId(createdOrderId || '');
+      if (createdOrderId) {
+        localStorage.setItem('lastOrderId', createdOrderId);
+      }
 
       if (paymentMethod === 'upi' && createdOrderId) {
+        // Always prepare a local dummy link so checkout is never blocked.
+        const localMockLink = `https://rzp.io/i/mock-${createdOrderId}`;
+        setPaymentLinkUrl(localMockLink);
+
         const payRes = await fetch('/api/payments/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orderId: createdOrderId,
             phone: customerPhone,
+            amountRupees: total,
           }),
         });
         const payData = await payRes.json().catch(() => ({}));
         if (!payRes.ok) {
-          throw new Error(payData?.error || 'Could not generate payment link');
+          // Keep local mock link; do not block flow.
+        } else {
+          setPaymentLinkUrl(payData?.paymentLink?.url || localMockLink);
+          if (payData?.warning) {
+            setPaymentError(String(payData.warning));
+          } else if (payData?.provider === 'razorpay') {
+            setPaymentError('Razorpay link created. SMS should arrive on your entered number.');
+          }
         }
-        setPaymentLinkUrl(payData?.paymentLink?.url || '');
       }
 
       setStep('success');
@@ -343,6 +365,32 @@ export default function Delivery() {
                       </a>
                       
                       <button 
+                        onClick={() => {
+                          const message = `Hello! Your order *${orderId}* at Jhunu's Kitchen has been received. \n\nTotal: Rs. ${total}\nPayment Link: ${paymentLinkUrl || 'Not generated'}\n\nTrack your order here: ${window.location.origin}/track?orderId=${orderId}`;
+                          const waUrl = `https://wa.me/91${customerPhone}?text=${encodeURIComponent(message)}`;
+                          window.open(waUrl, '_blank');
+                        }}
+                        className="btn"
+                        style={{ 
+                          padding: '0.65rem 1rem', 
+                          fontSize: '0.9rem', 
+                          background: '#25D366', 
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: '8px', 
+                          cursor: 'pointer',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.1rem' }}>💬</span> Send Details on WhatsApp
+                      </button>
+
+                      <button 
                         onClick={async () => {
                           try {
                             const res = await fetch('/api/payments/mock-success', {
@@ -380,7 +428,7 @@ export default function Delivery() {
               )}
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button onClick={() => { window.location.href = '/track'; }} className="btn btn-secondary glass" style={{ padding: '0.8rem 1.5rem' }}>
+                <button onClick={() => { window.location.href = `/track?orderId=${encodeURIComponent(orderId)}`; }} className="btn btn-secondary glass" style={{ padding: '0.8rem 1.5rem' }}>
                   Track Order
                 </button>
                 <button onClick={resetOrder} className="btn btn-primary" style={{ padding: '0.8rem 1.5rem' }}>

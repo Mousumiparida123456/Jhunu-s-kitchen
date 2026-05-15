@@ -149,7 +149,31 @@ export default function Admin() {
               </div>
 
               <div style={{ marginBottom: '1rem', display: 'grid', gap: '0.35rem' }}>
-                <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{order.customer}</div>
+                <div style={{ fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {order.customer}
+                  <button 
+                    onClick={() => {
+                      const waUrl = `https://wa.me/91${order.customerPhone}?text=${encodeURIComponent(`Hello ${order.customer}, this is Jhunu's Kitchen regarding your order ${order.id}.`)}`;
+                      window.open(waUrl, '_blank');
+                    }}
+                    title="Message on WhatsApp"
+                    style={{ 
+                      background: '#25D366', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      color: '#fff', 
+                      padding: '2px 8px', 
+                      fontSize: '0.75rem', 
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.8rem' }}>💬</span> WhatsApp
+                  </button>
+                </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{order.items}</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>{order.address}</div>
                 <div style={{ color: 'var(--text-main)', fontWeight: '600' }}>Total: Rs. {order.total}</div>

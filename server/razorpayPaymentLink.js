@@ -1,15 +1,5 @@
 import { prisma as defaultPrisma } from './prisma.js';
 
-function requiredEnv(name) {
-  const val = process.env[name];
-  if (!val) {
-    const err = new Error(`Missing ${name}`);
-    err.statusCode = 500;
-    throw err;
-  }
-  return val;
-}
-
 function toDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -28,35 +18,42 @@ function isDbConnectivityError(error) {
 export async function createRazorpayPaymentLinkForOrder({
   orderId,
   phone,
+  amountRupees,
   prisma = defaultPrisma,
 }) {
   const isMock = process.env.MOCK_PAYMENT === 'true';
-  const keyId = isMock ? 'mock_key' : requiredEnv('RAZORPAY_KEY_ID');
-  const keySecret = isMock ? 'mock_secret' : requiredEnv('RAZORPAY_KEY_SECRET');
+  const hasRazorpayKeys = Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+  const shouldAttemptRazorpay = hasRazorpayKeys && toDigits(phone).length === 10;
+  const keyId = shouldAttemptRazorpay ? process.env.RAZORPAY_KEY_ID : null;
+  const keySecret = shouldAttemptRazorpay ? process.env.RAZORPAY_KEY_SECRET : null;
 
   const cleanPhone = toDigits(phone);
-  if (cleanPhone.length !== 10) {
+  const effectivePhone = cleanPhone.length === 10 ? cleanPhone : '9999999999';
+  if (!isMock && cleanPhone.length !== 10) {
     const err = new Error('Phone must be 10 digits');
     err.statusCode = 400;
     throw err;
   }
 
   let order = null;
-  try {
-    order = await prisma.order.findUnique({ where: { id: orderId } });
-  } catch (error) {
-    if (!isMock || !isDbConnectivityError(error)) throw error;
+  if (!isMock) {
+    try {
+      order = await prisma.order.findUnique({ where: { id: orderId } });
+    } catch (error) {
+      if (!isDbConnectivityError(error)) throw error;
+    }
   }
 
-  if (!order && !isMock) {
+  if (!isMock && !order) {
     const err = new Error('Order not found');
     err.statusCode = 404;
     throw err;
   }
 
+  const safeAmountFromBody = Number.isFinite(amountRupees) ? Math.max(1, Math.round(amountRupees)) : null;
   const effectiveOrder = order || {
     id: orderId || `MOCK-${Date.now()}`,
-    totalRupees: 1,
+    totalRupees: safeAmountFromBody || 1,
     customerName: 'Customer',
     customerPhone: cleanPhone,
   };
@@ -70,11 +67,13 @@ export async function createRazorpayPaymentLinkForOrder({
 
   let paymentLinkId = null;
   let paymentLinkUrl = null;
+  let provider = 'mock';
+  let warning = null;
 
-  if (isMock) {
-    // Return a mock payment link
+  if (!shouldAttemptRazorpay) {
     paymentLinkId = `plink_mock_${Math.random().toString(36).substring(2, 9)}`;
     paymentLinkUrl = `https://rzp.io/i/mock-${effectiveOrder.id}`;
+    warning = 'Using mock link. Razorpay SMS requires valid keys and phone.';
   } else {
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 
@@ -82,10 +81,10 @@ export async function createRazorpayPaymentLinkForOrder({
       amount: amountPaise,
       currency: 'INR',
       reference_id: effectiveOrder.id,
-      description: `Jhunu's Kitchen - Order ${effectiveOrder.id}`,
+      description: `Jhunu's Kitchen - Order ${effectiveOrder.id} (Dummy/Test Mode)` ,
       customer: {
         name: effectiveOrder.customerName || 'Customer',
-        contact: cleanPhone,
+        contact: effectivePhone,
       },
       notify: { sms: true },
       reminder_enable: false,
@@ -110,21 +109,21 @@ export async function createRazorpayPaymentLinkForOrder({
     }
 
     if (!rpRes.ok) {
-      const err = new Error('Failed to create payment link');
-      err.statusCode = 502;
-      err.details = rpJson || rpText;
-      throw err;
+      paymentLinkId = `plink_mock_${Math.random().toString(36).substring(2, 9)}`;
+      paymentLinkUrl = `https://rzp.io/i/mock-${effectiveOrder.id}`;
+      warning = `Razorpay SMS link failed (${rpRes.status}). Fallback mock link used.`;
+    } else {
+      paymentLinkId = rpJson?.id || null;
+      paymentLinkUrl = rpJson?.short_url || rpJson?.shortUrl || rpJson?.url || null;
+      provider = 'razorpay';
     }
-
-    paymentLinkId = rpJson?.id || null;
-    paymentLinkUrl = rpJson?.short_url || rpJson?.shortUrl || rpJson?.url || null;
   }
 
   if (order) {
     await prisma.order.update({
       where: { id: order.id },
       data: {
-        customerPhone: order.customerPhone || cleanPhone,
+        customerPhone: order.customerPhone || effectivePhone,
         paymentStatus: 'PaymentLinkGenerated',
         paymentLinkId,
         paymentLinkUrl,
@@ -137,7 +136,9 @@ export async function createRazorpayPaymentLinkForOrder({
     paymentLink: {
       id: paymentLinkId,
       url: paymentLinkUrl,
-      isMock,
+      isMock: !shouldAttemptRazorpay || String(paymentLinkUrl || '').includes('/mock-'),
     },
+    provider,
+    ...(warning ? { warning } : {}),
   };
 }

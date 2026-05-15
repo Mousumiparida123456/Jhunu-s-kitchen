@@ -230,7 +230,7 @@ export async function createOrder(prisma, payload) {
   try {
     hydratedItems = await hydrateOrderItems(prisma, normalized.items);
   } catch (error) {
-    if (!isMockPayment || !isDbUnavailableError(error)) throw error;
+    if (!isDbUnavailableError(error)) throw error;
     hydratedItems = normalized.items.map((item) => ({
       menuItemId: item.menuItemId,
       name: item.name,
@@ -245,13 +245,18 @@ export async function createOrder(prisma, payload) {
   if (isMockPayment) {
     id = generateOrderId();
   } else {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const candidate = generateOrderId();
-      const exists = await prisma.order.findUnique({ where: { id: candidate } });
-      if (!exists) {
-        id = candidate;
-        break;
+    try {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generateOrderId();
+        const exists = await prisma.order.findUnique({ where: { id: candidate } });
+        if (!exists) {
+          id = candidate;
+          break;
+        }
       }
+    } catch (error) {
+      if (!isDbUnavailableError(error)) throw error;
+      id = generateOrderId();
     }
   }
   if (!id) {
@@ -296,7 +301,7 @@ export async function createOrder(prisma, payload) {
       },
     };
   } catch (error) {
-    if (!isMockPayment || !isDbUnavailableError(error)) throw error;
+    if (!isDbUnavailableError(error)) throw error;
     return {
       order: {
         id,

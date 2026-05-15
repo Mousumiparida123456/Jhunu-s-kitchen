@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 function buildSteps(status) {
   const steps = [
@@ -23,16 +23,15 @@ export default function Track() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleTrack = async (e) => {
-    e.preventDefault();
-    if (orderId.trim() === '') return;
+  const fetchTracking = async (inputOrderId) => {
+    if (inputOrderId.trim() === '') return;
 
     setLoading(true);
     setError('');
     setTrackingData(null);
 
     try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId.trim().toUpperCase())}`);
+      const res = await fetch(`/api/orders/${encodeURIComponent(inputOrderId.trim().toUpperCase())}`);
       if (!res.ok) {
         let message = 'Order not found (is the API running?)';
         try {
@@ -75,6 +74,21 @@ export default function Track() {
       setLoading(false);
     }
   };
+
+  const handleTrack = async (e) => {
+    e.preventDefault();
+    await fetchTracking(orderId);
+  };
+
+  useEffect(() => {
+    const fromQuery = new URLSearchParams(window.location.search).get('orderId');
+    const fromStorage = localStorage.getItem('lastOrderId');
+    const initial = (fromQuery || fromStorage || '').trim();
+    if (!initial) return;
+
+    setOrderId(initial);
+    fetchTracking(initial);
+  }, []);
 
   return (
     <div className="page-track" style={{ paddingTop: '120px', minHeight: '80vh', paddingBottom: '4rem' }}>
