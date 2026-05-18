@@ -14,6 +14,9 @@ This project has:
 - Node/Express backend (`server/*` + `api/*`)
 - Prisma ORM with PostgreSQL
 
+- ##Live link
+- https://jhunu-s-kitchen.vercel.app/
+
 You can run your own PostgreSQL with Docker (no Supabase dependency).
 
 ## 1) Install dependencies
